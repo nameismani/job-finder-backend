@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Users from "../models/userModel.js";
+import bcrypt from "bcryptjs"
 
 export const updateUser = async (req, res, next) => {
   const {
@@ -16,6 +17,7 @@ export const updateUser = async (req, res, next) => {
   try {
     if (!firstName || !lastName || !email || !contact || !jobTitle || !about) {
       next("Please provide all required fields");
+      return
     }
 
     const id = req.body.user.userId;
@@ -83,4 +85,12 @@ export const getUser = async (req, res, next) => {
       error: error.message,
     });
   }
+};
+
+export const updatePassword = async function (newPassword,email,next){
+  const salt = await bcrypt.genSalt(10);
+  let newHasshedPassword = await bcrypt.hash(newPassword, salt);
+  // this.password= newHasshedPassword ;
+ let  updatePasswrod = Users.findOneAndUpdate({email},{password:newHasshedPassword})
+ return updatePasswrod
 };

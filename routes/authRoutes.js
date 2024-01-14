@@ -1,6 +1,8 @@
 import express from "express";
 import { rateLimit } from "express-rate-limit";
-import { register, signIn } from "../controllers/authController.js";
+import { forgotPassword, getResetPassword, register, resetPassword, signIn } from "../controllers/authController.js";
+import UsersLoginHistory from "../models/usersLoginHistoryModel.js";
+import {format} from "date-fns";
 
 //ip rate limit
 const limiter = rateLimit({
@@ -15,5 +17,29 @@ const router = express.Router();
 // Register routes
 router.post("/register", limiter, register);
 router.post("/login", signIn);
+// router.get('/forgotpassword',(req,res)=>
+
+// res.render("forgotpassword")
+// )
+router.post("/forgotpassword",forgotPassword)
+router.get("/resetpassword",getResetPassword)
+router.post("/resetpassword",resetPassword)
+router.post("/logout",async(req,res)=>{
+  console.log("logout",req.session.loggedin)
+let {id} = req.body
+  // req.session.loggedin = true
+  // req.session.save()
+  // req.session.destory()
+
+ let user = await UsersLoginHistory.findByIdAndUpdate(id,{logout_time:format(new Date(),'yyyy.MM.dd HH:mm:ss')})
+//  console.log(user)
+ if(user){
+  res.status(200).json({
+    success:true,
+    message:'user logged out'
+  })
+ }
+
+})
 
 export default router;

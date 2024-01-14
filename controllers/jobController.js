@@ -130,7 +130,7 @@ export const getJobPosts = async (req, res, next) => {
     if (location) {
       queryObject.location = { $regex: location, $options: "i" };
     }
-   console.log(types)
+  //  console.log(types)
     if (jtype) {
       queryObject.jobType = { $in: types };
     }

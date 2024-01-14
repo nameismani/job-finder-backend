@@ -40,6 +40,8 @@ companySchema.methods.comparePassword = async function (userPassword) {
   return isMatch;
 };
 
+
+
 //JSON WEBTOKEN
 companySchema.methods.createJWT = function () {
   return JWT.sign({ userId: this._id }, process.env.JWT_SECRET_KEY, {

@@ -2,10 +2,16 @@ import mongoose from "mongoose";
 import Companies from "../models/companiesModel.js";
 import path from "path"
 import { dirname } from 'path';
+import bcrypt from "bcryptjs"
 import { fileURLToPath } from 'url';
+import {format} from "date-fns";
+// import date from "date-and-time"
+import ipinfo from "ipinfo"
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { response } from "express";
+import UsersLoginHistory from "../models/usersLoginHistoryModel.js";
+
 
 export const register = async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -40,10 +46,11 @@ export const register = async (req, res, next) => {
     });
 
     // user token
+    let userName = name
     const token = company.createJWT();
     const template = await req.app
     .get("nmp_ejs")
-    .renderFile(path.join(__dirname,"../mailtemplate/emailtemplate.ejs"));
+    .renderFile(path.join(__dirname,"../mailtemplate/emailtemplate.ejs"),{userName});
   var mailOptions = {
     from: 'nameismani',
     to: email,
@@ -66,17 +73,119 @@ export const register = async (req, res, next) => {
       // });
     }
   });
-    res.status(201).json({
-      success: true,
-      message: "Company Account Created Successfully",
-      user: {
-        _id: company._id,
-        name: company.name,
-        email: company.email,
-      },
-      token,
-      session:req.session,
-    });
+  ipinfo(async (err, data) => {
+    if (err) {
+        console.error(err);
+    } else {
+  
+  
+        let obj = {}
+        // obj.login_time =request.session.login_time
+        // obj.psp_id = rows[0].id
+        obj.ipaddress = data.ip
+        obj.city = data.city
+        obj.region = data.region
+        obj.country = data.country
+          
+        let location = `${obj.city}, ${obj.region}, ${obj.country}`
+   
+  
+       console.log(obj.ipaddress,location)
+  
+       const userLoginHistory = await UsersLoginHistory.create({
+        userId:company._id,
+        login_time:format(new Date(),'yyyy.MM.dd HH:mm:ss'),
+        remote_ip:data.ip,
+        location:location
+      });
+    
+      const currentDate = new Date(); // Current date
+
+const startOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+const endOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1);
+
+const userLoginHistoryDetail = await UsersLoginHistory.find({
+userId: company._id,
+login_time: { $gte: startOfDay, $lt: endOfDay }
+});
+
+const totalLogins = userLoginHistoryDetail.length;
+const lastLogoutTime = userLoginHistoryDetail.length >= 2 ? userLoginHistoryDetail[userLoginHistoryDetail.length - 2].logout_time : null;
+let lastLoginTime = userLoginHistoryDetail.length >=1 ?  userLoginHistoryDetail[userLoginHistoryDetail.length - 1].login_time :null
+
+// console.log(lastLogoutTime)
+// let totalWorkHours = 0;
+// userLoginHistoryDetail.forEach((login) => {
+//   // totalWorkHours += Number(login.logout_time) - Number(login.login_time);
+//   const loginTime = new Date(login.login_time);
+//   const logoutTime = new Date(login.logout_time);
+//   totalWorkHours += Number(logoutTime) - Number(loginTime);
+//   console.log(login.login_time,login.logout_time)
+// });
+
+let totalWorkMinutes = 0;
+
+for (let i = 0; i < userLoginHistoryDetail.length - 1; i++) {
+const loginTime = new Date(userLoginHistoryDetail[i].login_time);
+const logoutTime = new Date(userLoginHistoryDetail[i].logout_time);
+
+totalWorkMinutes += (logoutTime - loginTime) / (1000);
+
+console.log(`${format(loginTime,'yyyy.MM.dd HH:mm:ss')} ${format(logoutTime,'yyyy.MM.dd HH:mm:ss')}`);
+}
+
+// Calculate total work hours and remaining minutes
+const totalWorkHours = Math.floor(totalWorkMinutes / 3660);
+const remainingMinutes = Math.floor((totalWorkMinutes % 3660)/60);
+const remainingSeconds = Math.round((totalWorkMinutes) % 60);
+let totalHours= `${totalWorkHours} hours ${remainingMinutes} minutes ${remainingSeconds} seconds`
+function calculateTimeDifference(totalWorkedHours) {
+const regex = /(\d+)\s*hour[s]*\s*(\d*)\s*minute[s]*\s*(\d*)\s*second[s]*/i;
+const match = totalWorkedHours.match(regex);
+
+if (match) {
+  const hours = parseInt(match[1]) || 0;
+  const minutes = parseInt(match[2]) || 0;
+  const seconds = parseInt(match[3]) || 0;
+
+  const totalMilliseconds = (hours * 60 * 60 + minutes * 60 + seconds) * 1000;
+
+  const currentDate = new Date();
+  const adjustedDate = new Date(currentDate.getTime() - totalMilliseconds);
+
+  return adjustedDate;
+} else {
+  return null; // Invalid format, return null
+}
+}
+const adjustDate = totalHours;
+const calcualtedTotalHours = calculateTimeDifference(adjustDate);
+// // console.log(`User ID: ${userId}`);
+console.log(`Total Logins: ${totalLogins}`);
+console.log(`Last Logout Time: ${lastLogoutTime !== null ? format(lastLogoutTime,'yyyy.MM.dd HH:mm:ss'):null}`);
+console.log(`Total Work Hours: ${totalWorkHours} hours ${remainingMinutes} minutes ${remainingSeconds} seconds`);
+// console.log(new Date())
+      req.session.userId = userLoginHistory._id
+      let userLogins = {
+        totalLogins:totalLogins,
+        lastLogoutTime:lastLogoutTime !== null ? format(lastLogoutTime,'yyyy.MM.dd HH:mm:ss'):null,
+        lastLoginTime:lastLoginTime,
+        totalHours:calcualtedTotalHours
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Login SUccessfully",
+        user: company,
+        userLogins,
+        session:req.session,
+        role:2,
+        token,
+      });
+    }
+  
+  });
+
   } catch (error) {
     console.log(error);
     res.status(404).json({ message: error.message });
@@ -107,17 +216,124 @@ export const signIn = async (req, res, next) => {
       return;
     }
     company.password = undefined;
-
-    const token = company.createJWT();
     req.session.loggedin = true
     req.session.save()
-    res.status(200).json({
-      success: true,
-      message: "Login SUccessfully",
-      user: company,
-      session:req.session,
-      token,
+    const token = company.createJWT();
+
+    ipinfo(async (err, data) => {
+      if (err) {
+          console.error(err);
+      } else {
+    
+    
+          let obj = {}
+          // obj.login_time =request.session.login_time
+          // obj.psp_id = rows[0].id
+          obj.ipaddress = data.ip
+          obj.city = data.city
+          obj.region = data.region
+          obj.country = data.country
+            
+          let location = `${obj.city}, ${obj.region}, ${obj.country}`
+     
+    
+         console.log(obj.ipaddress,location)
+    
+         const userLoginHistory = await UsersLoginHistory.create({
+          userId:company._id,
+          login_time:format(new Date(),'yyyy.MM.dd HH:mm:ss'),
+          remote_ip:data.ip,
+          location:location
+        });
+      
+        const currentDate = new Date(); // Current date
+
+const startOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+const endOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1);
+
+const userLoginHistoryDetail = await UsersLoginHistory.find({
+  userId: company._id,
+  login_time: { $gte: startOfDay, $lt: endOfDay }
+});
+
+const totalLogins = userLoginHistoryDetail.length;
+const lastLogoutTime = userLoginHistoryDetail.length >= 2 ? userLoginHistoryDetail[userLoginHistoryDetail.length - 2].logout_time : null;
+let lastLoginTime = userLoginHistoryDetail.length >=1 ?  userLoginHistoryDetail[userLoginHistoryDetail.length - 1].login_time :null
+
+// console.log(lastLogoutTime)
+// let totalWorkHours = 0;
+// userLoginHistoryDetail.forEach((login) => {
+//   // totalWorkHours += Number(login.logout_time) - Number(login.login_time);
+//   const loginTime = new Date(login.login_time);
+//   const logoutTime = new Date(login.logout_time);
+//   totalWorkHours += Number(logoutTime) - Number(loginTime);
+//   console.log(login.login_time,login.logout_time)
+// });
+
+let totalWorkMinutes = 0;
+
+for (let i = 0; i < userLoginHistoryDetail.length - 1; i++) {
+  const loginTime = new Date(userLoginHistoryDetail[i].login_time);
+  const logoutTime = new Date(userLoginHistoryDetail[i].logout_time);
+
+  totalWorkMinutes += (logoutTime - loginTime) / (1000);
+
+ console.log(`${format(loginTime,'yyyy.MM.dd HH:mm:ss')} ${format(logoutTime,'yyyy.MM.dd HH:mm:ss')}`);
+}
+
+// Calculate total work hours and remaining minutes
+const totalWorkHours = Math.floor(totalWorkMinutes / 3660);
+const remainingMinutes = Math.floor((totalWorkMinutes % 3660)/60);
+const remainingSeconds = Math.round((totalWorkMinutes) % 60);
+let totalHours= `${totalWorkHours} hours ${remainingMinutes} minutes ${remainingSeconds} seconds`
+function calculateTimeDifference(totalWorkedHours) {
+  const regex = /(\d+)\s*hour[s]*\s*(\d*)\s*minute[s]*\s*(\d*)\s*second[s]*/i;
+  const match = totalWorkedHours.match(regex);
+
+  if (match) {
+    const hours = parseInt(match[1]) || 0;
+    const minutes = parseInt(match[2]) || 0;
+    const seconds = parseInt(match[3]) || 0;
+
+    const totalMilliseconds = (hours * 60 * 60 + minutes * 60 + seconds) * 1000;
+
+    const currentDate = new Date();
+    const adjustedDate = new Date(currentDate.getTime() - totalMilliseconds);
+
+    return adjustedDate;
+  } else {
+    return null; // Invalid format, return null
+  }
+}
+const adjustDate = totalHours;
+const calcualtedTotalHours = calculateTimeDifference(adjustDate);
+// // console.log(`User ID: ${userId}`);
+console.log(`Total Logins: ${totalLogins}`);
+console.log(`Last Logout Time: ${lastLogoutTime !== null ? format(lastLogoutTime,'yyyy.MM.dd HH:mm:ss'):null}`);
+console.log(`Total Work Hours: ${totalWorkHours} hours ${remainingMinutes} minutes ${remainingSeconds} seconds`);
+// console.log(new Date())
+        req.session.userId = userLoginHistory._id
+        let userLogins = {
+          totalLogins:totalLogins,
+          lastLogoutTime:lastLogoutTime !== null ? format(lastLogoutTime,'yyyy.MM.dd HH:mm:ss'):null,
+          lastLoginTime:lastLoginTime,
+          totalHours:calcualtedTotalHours
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Login SUccessfully",
+          user: company,
+          userLogins,
+          session:req.session,
+          role:2,
+          token,
+        });
+      }
+    
     });
+
+
   } catch (error) {
     console.log(error);
     res.status(404).json({ message: error.message });
@@ -330,4 +546,13 @@ export const getCompanyById = async (req, res, next) => {
     console.log(error);
     res.status(404).json({ message: error.message });
   }
+};
+
+
+export const updateCompanyPassword = async (newPassword,email,next) => {
+  const salt = await bcrypt.genSalt(10);
+  let newHasshedPassword = await bcrypt.hash(newPassword, salt);
+  // this.password=newHasshedPassword ;
+ let updatePasswrod =  Companies.findOneAndUpdate({email},{password:newHasshedPassword})
+ return updatePasswrod
 };
