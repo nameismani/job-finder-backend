@@ -25,11 +25,11 @@ router.post("/forgotpassword",forgotPassword)
 router.get("/resetpassword",getResetPassword)
 router.post("/resetpassword",resetPassword)
 router.post("/logout",async(req,res)=>{
-  console.log("logout",req.session.loggedin)
+  console.log("logout",req.session.userId,req.session.loggedin)
 let {id} = req.body
-  // req.session.loggedin = true
-  // req.session.save()
-  // req.session.destory()
+  req.session.loggedin = false
+  req.session.save()
+  req.session.destroy()
 
  let user = await UsersLoginHistory.findByIdAndUpdate(id,{logout_time:format(new Date(),'yyyy.MM.dd HH:mm:ss')})
 //  console.log(user)

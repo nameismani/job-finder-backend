@@ -17,7 +17,7 @@ import { updateCompanyPassword } from "./companiesController.js";
 // console.log(date.format((new Date()), 'YYYY.MM.DD HH:mm:ss'))
 // date.format()
 // console.log(format(new Date(), 'MMMM dd, yyyy pp'))
-// console.log(format(new Date(),'yyyy.MM.dd HH:mm:ss'))
+console.log(format(new Date("2024-01-14T17:40:05.299Z"),'yyyy.MM.dd HH:mm:ss'))
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const register = async (req, res, next) => {
@@ -259,7 +259,7 @@ export const signIn = async (req, res, next) => {
           let location = `${obj.city}, ${obj.region}, ${obj.country}`
      
     
-         console.log(obj.ipaddress,location)
+        //  console.log(obj.ipaddress,location)
     
          const userLoginHistory = await UsersLoginHistory.create({
           userId:user._id,
@@ -342,6 +342,7 @@ console.log(`Last Logout Time: ${lastLogoutTime !== null ? format(lastLogoutTime
 console.log(`Total Work Hours: ${totalWorkHours} hours ${remainingMinutes} minutes ${remainingSeconds} seconds`);
 console.log(new Date())
         req.session.userId = userLoginHistory._id
+        req.session.save()
         let userLogins = {
           totalLogins:totalLogins,
           lastLogoutTime:lastLogoutTime !== null ? format(lastLogoutTime,'yyyy.MM.dd HH:mm:ss'):null,

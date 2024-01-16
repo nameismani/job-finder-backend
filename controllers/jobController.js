@@ -138,6 +138,8 @@ export const getJobPosts = async (req, res, next) => {
     //    [2. 6]
 
     if (exp) {
+      // console.log(experience[0],console.log(experience1))
+      console.log(Number(experience[0])-1)
       queryObject.experience = {
         $gte: Number(experience[0]) - 1,
         $lte: Number(experience[1]) + 1,
@@ -181,7 +183,7 @@ export const getJobPosts = async (req, res, next) => {
     //records count
     const totalJobs = await Jobs.countDocuments(queryResult);
     const numOfPage = Math.ceil(totalJobs / limit);
-
+    // queryResult = queryResult.skip(skip).limit(limit * page);
     queryResult = queryResult.limit(limit * page);
 
     const jobs = await queryResult;

@@ -411,6 +411,7 @@ export const getCompanyProfile = async (req, res, next) => {
 //GET ALL COMPANIES
 export const getCompanies = async (req, res, next) => {
   // console.log(req.session.loggedin)
+  console.log("getcom",req.session.userId)
   try {
     const { search, sort, location } = req.query;
 
@@ -517,7 +518,7 @@ export const getCompanyJobListing = async (req, res, next) => {
 
 // GET SINGLE COMPANY
 export const getCompanyById = async (req, res, next) => {
-
+ 
   try {
     const { id } = req.params;
 

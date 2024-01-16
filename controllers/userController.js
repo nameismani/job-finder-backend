@@ -15,7 +15,7 @@ export const updateUser = async (req, res, next) => {
   } = req.body;
 
   try {
-    if (!firstName || !lastName || !email || !contact || !jobTitle || !about) {
+    if (!firstName || !lastName ||  !contact || !jobTitle || !about) {
       next("Please provide all required fields");
       return
     }
